@@ -8,10 +8,28 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.black,
+        toolbarHeight: 80, // Makes the AppBar taller
+        leadingWidth: 80, // Allow more horizontal space for the logo
+        backgroundColor: const Color.fromARGB(255, 37, 36, 34),
         elevation: 0,
-        title: const Text('Profile', style: TextStyle(color: Colors.white)),
+        automaticallyImplyLeading: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Image.asset(
+            'assets/images/logo-small.png',
+            height: 170,
+            width: 170,
+            fit: BoxFit.contain,
+          ),
+        ),
+        title: const Text(
+          'Profile',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         centerTitle: true,
         actions: [
           TextButton(
@@ -22,24 +40,26 @@ class ProfileScreen extends StatelessWidget {
               'Edit Profile',
               style: TextStyle(
                 color: Color.fromARGB(255, 235, 94, 40),
-                fontWeight: FontWeight.bold,
+               // fontWeight: FontWeight.bold,
+                fontSize: 20,
               ),
             ),
           ),
         ],
       ),
+
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 16),
+            const SizedBox(height: 30),
             Row(
               children: [
                 const CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Colors.orange,
-                  child: Icon(Icons.person, size: 50, color: Colors.white),
+                  radius: 50,
+                  backgroundColor: Color.fromARGB(255, 235, 94, 40),
+                  child: Icon(Icons.person_2_outlined, size: 80, color: Colors.white,),
                 ),
                 const SizedBox(width: 20),
                 Column(
@@ -49,24 +69,22 @@ class ProfileScreen extends StatelessWidget {
                       'User Name',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
                       'User Email Address',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: Colors.white70, fontSize: 18),
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Workouts\n7',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
+                      'Workouts',
+                      style: TextStyle(color: Colors.white70, fontSize: 18),
+                    ),
+                                        Text(
+                      '7',
+                      style: TextStyle(color: Colors.white, fontSize: 18,fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -90,8 +108,8 @@ class ProfileScreen extends StatelessWidget {
                     onPressed: () {
                       // TODO: Navigate to Measures screen
                     },
-                    icon: const Icon(Icons.accessibility, color: Colors.white),
-                    label: const Text('Measures'),
+                    icon: const Icon(Icons.accessibility, color: Colors.white,size: 30,),
+                    label: const Text('Measures', style: TextStyle(fontSize: 18),),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[900],
                       foregroundColor: Colors.white,
@@ -102,14 +120,14 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 20),
+                const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
                       // TODO: Navigate to Calendar screen
                     },
-                    icon: const Icon(Icons.calendar_today, color: Colors.white),
-                    label: const Text('Calendar'),
+                    icon: const Icon(Icons.calendar_month, color: Colors.white, size: 30,),
+                    label: const Text('Calendar', style: TextStyle(fontSize: 18),),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[900],
                       foregroundColor: Colors.white,
