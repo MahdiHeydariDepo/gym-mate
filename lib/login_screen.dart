@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gymmate/forget_password_screen.dart';
+import 'package:gymmate/profile_screen.dart';
 import 'package:gymmate/signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -157,7 +158,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // Log in button
               ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileScreen(),
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color.fromARGB(255, 235, 94, 40),
                   shape: RoundedRectangleBorder(
