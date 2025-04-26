@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:gymmate/calendar_screen.dart';
+import 'package:gymmate/custom_widgets/buttom_navbar.dart';
+import 'package:gymmate/edit_profile_screen.dart';
+import 'package:gymmate/measurments_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -34,13 +38,18 @@ class ProfileScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () {
-              // TODO: Navigate to Edit Profile Screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const EditProfileScreen(),
+                ),
+              );
             },
             child: const Text(
               'Edit Profile',
               style: TextStyle(
                 color: Color.fromARGB(255, 235, 94, 40),
-               // fontWeight: FontWeight.bold,
+                // fontWeight: FontWeight.bold,
                 fontSize: 20,
               ),
             ),
@@ -59,7 +68,11 @@ class ProfileScreen extends StatelessWidget {
                 const CircleAvatar(
                   radius: 50,
                   backgroundColor: Color.fromARGB(255, 235, 94, 40),
-                  child: Icon(Icons.person_2_outlined, size: 80, color: Colors.white,),
+                  child: Icon(
+                    Icons.person_2_outlined,
+                    size: 80,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(width: 20),
                 Column(
@@ -82,9 +95,13 @@ class ProfileScreen extends StatelessWidget {
                       'Workouts',
                       style: TextStyle(color: Colors.white70, fontSize: 18),
                     ),
-                                        Text(
+                    Text(
                       '7',
-                      style: TextStyle(color: Colors.white, fontSize: 18,fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -106,10 +123,22 @@ class ProfileScreen extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // TODO: Navigate to Measures screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MeasurementsScreen(),
+                        ),
+                      );
                     },
-                    icon: const Icon(Icons.accessibility, color: Colors.white,size: 30,),
-                    label: const Text('Measures', style: TextStyle(fontSize: 18),),
+                    icon: const Icon(
+                      Icons.accessibility,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                    label: const Text(
+                      'Measures',
+                      style: TextStyle(fontSize: 18),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[900],
                       foregroundColor: Colors.white,
@@ -124,10 +153,22 @@ class ProfileScreen extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // TODO: Navigate to Calendar screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CalendarScreen(),
+                        ),
+                      );
                     },
-                    icon: const Icon(Icons.calendar_month, color: Colors.white, size: 30,),
-                    label: const Text('Calendar', style: TextStyle(fontSize: 18),),
+                    icon: const Icon(
+                      Icons.calendar_month,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                    label: const Text(
+                      'Calendar',
+                      style: TextStyle(fontSize: 18),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[900],
                       foregroundColor: Colors.white,
@@ -143,28 +184,7 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: SizedBox(
-        height: 80,
-        child: BottomNavigationBar(
-          backgroundColor: Color.fromARGB(255, 37, 36, 34),
-          selectedItemColor: Color.fromARGB(255, 235, 94, 40),
-          unselectedItemColor: Colors.white,
-          currentIndex: 1,
-          onTap: (index) {
-            // Handle navigation logic
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.fitness_center),
-              label: 'Workout',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_2_outlined),
-              label: 'Profile',
-            ),
-          ],
-        ),
-      ),
+      bottomNavigationBar: MyBottomNavBar(currentIndex: 1),
     );
   }
 }

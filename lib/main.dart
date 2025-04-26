@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gymmate/profile_screen.dart';
 import 'splash_screen.dart';
 import 'login_screen.dart';
 
@@ -19,6 +20,7 @@ class GymMateApp extends StatelessWidget {
       routes: {
         '/splash': (context) => SplashScreen(),
         '/login': (context) => LoginScreen(),
+        '/profile': (context) => ProfileScreen(),
       },
     );
   }
