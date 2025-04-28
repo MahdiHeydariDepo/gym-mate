@@ -18,81 +18,73 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
   bool _rememberMe = false;
   bool _isLoading = false;
+Future<void> loginUser() async {
+  final email = emailController.text.trim();
+  final password = passwordController.text.trim();
 
-  Future<void> loginUser() async {
-    final String email = emailController.text.trim();
-    final String password = passwordController.text.trim();
+  if (email.isEmpty || password.isEmpty) {
+    _showSnackBar('Please fill in both email and password');
+    return;
+  }
 
-    // Validate fields
-    if (email.isEmpty || password.isEmpty) {
-      _showErrorDialog('Please enter both email and password.');
-      return;
-    }
+  setState(() {
+    _isLoading = true;
+  });
+
+  final url = Uri.parse('http://10.0.2.2:5000/api/UsersApi/login'); // 👈 Correct your backend URL here
+
+  try {
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "email": email,
+        "password": password,
+      }),
+    );
 
     setState(() {
-      _isLoading = true;
+      _isLoading = false;
     });
 
-    try {
-      // Make API request
-      final url = Uri.parse('https://yourbackend.com/api/auth/login'); // CHANGE URL
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
-      );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final token = data['token'];
 
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        final token = responseData['token'];
-
-        // Save token if needed
-        if (_rememberMe) {
-          SharedPreferences prefs = await SharedPreferences.getInstance();
-          await prefs.setString('jwtToken', token);
-        }
-
-        // Navigate to Profile screen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const ProfileScreen()),
-        );
-
-      } else {
-        // Backend sends error message as JSON
-        final responseData = jsonDecode(response.body);
-        final errorMessage = responseData['error'] ?? 'Login failed. Please try again.';
-        _showErrorDialog(errorMessage);
+      if (_rememberMe) {
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('jwtToken', token);
       }
 
-    } catch (e) {
-      _showErrorDialog('An error occurred. Please check your connection.');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
+      _showSnackBar('Login successful!', isSuccess: true);
 
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.black,
-        title: const Text('Error', style: TextStyle(color: Colors.redAccent)),
-        content: Text(message, style: const TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK', style: TextStyle(color: Colors.orange)),
-          ),
-        ],
-      ),
-    );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const ProfileScreen()),
+      );
+    } else {
+      final data = jsonDecode(response.body);
+      String errorMessage = data['message'] ?? 'Invalid email or password.';
+      _showSnackBar(errorMessage);
+    }
+  } catch (e) {
+    setState(() {
+      _isLoading = false;
+    });
+    _showSnackBar('Network error. Please try again.');
   }
+}
+
+
+ void _showSnackBar(String message, {bool isSuccess = false}) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      backgroundColor: isSuccess ? Colors.green : Colors.red,
+      content: Text(message),
+    ),
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {

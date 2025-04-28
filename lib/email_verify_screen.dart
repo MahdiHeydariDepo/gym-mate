@@ -1,31 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class EmailVerificationScreen extends StatefulWidget {
   final String email;
-
-  const EmailVerificationScreen({super.key, required this.email});
+  const EmailVerificationScreen({Key? key, required this.email}) : super(key: key);
 
   @override
-  State<EmailVerificationScreen> createState() => _EmailVerificationScreenState();
+  _EmailVerificationScreenState createState() => _EmailVerificationScreenState();
 }
 
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   final TextEditingController _codeController = TextEditingController();
   bool _isResending = false;
+  bool _isLoading = false;
 
-  void _verifyCode() {
+  void _verifyCode() async {
     final code = _codeController.text.trim();
     if (code.length == 6) {
-      // TODO: Send BOTH email and code to your ASP.NET backend
-      print('Verifying for Email: ${widget.email}, Code: $code');
-      
-      // Example: API Call to /verify endpoint with email and code
+      setState(() {
+        _isLoading = true;
+      });
 
-      // Example success: Navigate to profile page
-      Navigator.pushReplacementNamed(context, '/profile');
+      try {
+        final url = Uri.parse('http://10.0.2.2:5000/api/UsersApi/verify-email');
+
+        final response = await http.post(
+          url,
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "email": widget.email.trim().toLowerCase(),
+            "code": code,
+          }),
+        );
+
+        setState(() {
+          _isLoading = false;
+        });
+
+        // 👇 Print response for debugging
+        print('Response code: ${response.statusCode}');
+        print('Response body: ${response.body}');
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          // Navigate to profile on success
+          Navigator.pushReplacementNamed(context, '/profile');
+        } else {
+          final data = jsonDecode(response.body);
+          String errorMessage = data['message'] ?? 'Invalid verification code.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)),
+          );
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Network error. Please try again.')),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid 6-digit code')),
+        SnackBar(content: Text('Please enter a valid 6-digit code')),
       );
     }
   }
@@ -35,16 +72,40 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       _isResending = true;
     });
 
-    // TODO: Call backend API to resend code, passing widget.email
-    await Future.delayed(const Duration(seconds: 2)); // Simulate network delay
+    try {
+      final url = Uri.parse('http://10.0.2.2:5000/api/UsersApi/resendCode');
 
-    setState(() {
-      _isResending = false;
-    });
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": widget.email.trim().toLowerCase(),
+        }),
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Verification code resent')),
-    );
+      setState(() {
+        _isResending = false;
+      });
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Verification code resent')),
+        );
+      } else {
+        final data = jsonDecode(response.body);
+        String errorMessage = data['message'] ?? 'Failed to resend code.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isResending = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Network error. Please try again.')),
+      );
+    }
   }
 
   @override
@@ -117,7 +178,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _verifyCode,
+                onPressed: _isLoading ? null : _verifyCode,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color.fromARGB(255, 235, 94, 40),
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -125,10 +186,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Verify',
-                  style: TextStyle(fontSize: 20, color: Colors.white),
-                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(
+                        color: Colors.white,
+                      )
+                    : const Text(
+                        'Verify',
+                        style: TextStyle(fontSize: 20, color: Colors.white),
+                      ),
               ),
             ),
           ],

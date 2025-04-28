@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'reset_password_screen.dart'; // Import the new ResetPasswordScreen
+import 'package:gymmate/reset_password_screen.dart'; 
+import 'package:http/http.dart' as http;
 
 class ForgetPasswordScreen extends StatefulWidget {
   const ForgetPasswordScreen({super.key});
@@ -10,6 +12,63 @@ class ForgetPasswordScreen extends StatefulWidget {
 
 class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
   final TextEditingController emailController = TextEditingController();
+  bool isLoading = false;
+
+  Future<void> _sendResetRequest() async {
+    final email = emailController.text.trim();
+
+    if (email.isEmpty) {
+      _showSnackBar('Please enter your email');
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    final url = Uri.parse('http://10.0.2.2:5000/api/UsersApi/forgot-password'); // 👈 UPDATE to your real endpoint
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email}),
+      );
+
+      setState(() {
+        isLoading = false;
+      });
+
+      if (response.statusCode == 200) {
+        _showSnackBar('Reset code sent to your email!', isSuccess: true);
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ResetPasswordScreen(email: email),
+          ),
+        );
+      } else {
+        final data = jsonDecode(response.body);
+        String errorMessage = data['message'] ?? 'Failed to send reset code.';
+        _showSnackBar(errorMessage);
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      _showSnackBar('Network error. Please try again.');
+    }
+  }
+
+  void _showSnackBar(String message, {bool isSuccess = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: isSuccess ? Colors.green : Colors.red,
+        content: Text(message),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,33 +119,22 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
               ),
             ),
             const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () {
-                if (emailController.text.isNotEmpty) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ResetPasswordScreen(email: emailController.text.trim()),
+            isLoading
+                ? const CircularProgressIndicator(color: Color.fromARGB(255, 235, 94, 40))
+                : ElevatedButton(
+                    onPressed: _sendResetRequest,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 235, 94, 40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      fixedSize: const Size(274, 55),
                     ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter your email')),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color.fromARGB(255, 235, 94, 40),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                fixedSize: const Size(274, 55),
-              ),
-              child: const Text(
-                "Continue",
-                style: TextStyle(fontSize: 18, color: Colors.white),
-              ),
-            ),
+                    child: const Text(
+                      "Continue",
+                      style: TextStyle(fontSize: 18, color: Colors.white),
+                    ),
+                  ),
           ],
         ),
       ),
