@@ -23,9 +23,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final String email = emailController.text.trim();
     final String password = passwordController.text.trim();
 
-    // Validate fields
     if (email.isEmpty || password.isEmpty) {
-      _showErrorDialog('Please enter both email and password.');
+      _showErrorDialog('Please enter both username and password.');
       return;
     }
 
@@ -33,43 +32,38 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
+    final url = Uri.parse('http://10.0.2.2:5000/api/UsersApi/login');
+
     try {
-      // Make API request
-      final url = Uri.parse('https://yourbackend.com/api/auth/login'); // CHANGE URL
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'email': email,
+          'username': email, // توجه: باید username باشه طبق بک‌اند
           'password': password,
         }),
       );
 
+      final responseData = jsonDecode(response.body);
+
       if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
         final token = responseData['token'];
 
-        // Save token if needed
         if (_rememberMe) {
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('jwtToken', token);
         }
 
-        // Navigate to Profile screen
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const ProfileScreen()),
         );
-
       } else {
-        // Backend sends error message as JSON
-        final responseData = jsonDecode(response.body);
-        final errorMessage = responseData['error'] ?? 'Login failed. Please try again.';
+        final errorMessage = responseData['message'] ?? 'Login failed. Please try again.';
         _showErrorDialog(errorMessage);
       }
-
     } catch (e) {
-      _showErrorDialog('An error occurred. Please check your connection.');
+      _showErrorDialog('Could not connect to server. Please check your internet connection.');
     } finally {
       setState(() {
         _isLoading = false;
@@ -104,14 +98,11 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-
               const SizedBox(height: 150),
               Image.asset('assets/images/logo-login.png', height: 100),
               const SizedBox(height: 40),
-
               _buildTextField('Email Address', emailController, Icons.email_outlined, false),
               const SizedBox(height: 20),
-
               _buildTextField('Password', passwordController, Icons.lock_outline, true),
               const SizedBox(height: 20),
 
@@ -142,16 +133,19 @@ class _LoginScreenState extends State<LoginScreen> {
               _isLoading
                   ? const CircularProgressIndicator(color: Color.fromARGB(255, 235, 94, 40))
                   : ElevatedButton(
-                      onPressed: loginUser,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 235, 94, 40),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        fixedSize: const Size(274, 55),
-                      ),
-                      child: const Text("Log in", style: TextStyle(fontSize: 18, color: Colors.white)),
-                    ),
+                onPressed: loginUser,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 235, 94, 40),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  fixedSize: const Size(274, 55),
+                ),
+                child: const Text(
+                  "Log in",
+                  style: TextStyle(fontSize: 18, color: Colors.white),
+                ),
+              ),
 
               const SizedBox(height: 20),
 
