@@ -255,7 +255,7 @@ class _AddExercisePageState extends State<AddExercisePage> {
 
   TextEditingController _routineTitleController = TextEditingController();
   final List<String> selectedMuscles = [];
-  final Set<String> selectedExercises = {};
+  final List<Map<String, String>> selectedExercises = [];
 
   @override
   void dispose() {
@@ -321,7 +321,8 @@ class _AddExercisePageState extends State<AddExercisePage> {
       final matchesSearch = exercise['name']!.toLowerCase().contains(
         _searchController.text.toLowerCase(),
       );
-      final matchesMuscle = selectedMuscles.isEmpty ||
+      final matchesMuscle =
+          selectedMuscles.isEmpty ||
           selectedMuscles.contains(exercise['muscle']);
       return matchesSearch && matchesMuscle;
     }).toList();
@@ -416,19 +417,20 @@ class _AddExercisePageState extends State<AddExercisePage> {
             ),
             Wrap(
               spacing: 8,
-              children: selectedMuscles.map((muscle) {
-                return Chip(
-                  backgroundColor: const Color(0xFFEB5E28),
-                  label: Text(
-                    muscle,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  deleteIcon: const Icon(Icons.close, color: Colors.white),
-                  onDeleted: () {
-                    setState(() => selectedMuscles.remove(muscle));
-                  },
-                );
-              }).toList(),
+              children:
+                  selectedMuscles.map((muscle) {
+                    return Chip(
+                      backgroundColor: const Color(0xFFEB5E28),
+                      label: Text(
+                        muscle,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      deleteIcon: const Icon(Icons.close, color: Colors.white),
+                      onDeleted: () {
+                        setState(() => selectedMuscles.remove(muscle));
+                      },
+                    );
+                  }).toList(),
             ),
             const SizedBox(height: 10),
             Expanded(
@@ -436,15 +438,18 @@ class _AddExercisePageState extends State<AddExercisePage> {
                 itemCount: filteredExercises.length,
                 itemBuilder: (context, index) {
                   final exercise = filteredExercises[index];
-                  final isSelected =
-                      selectedExercises.contains(exercise['name']);
+                  final isSelected = selectedExercises.any(
+                    (e) => e['name'] == exercise['name'],
+                  );
                   return GestureDetector(
                     onTap: () {
                       setState(() {
                         if (isSelected) {
-                          selectedExercises.remove(exercise['name']);
+                          selectedExercises.removeWhere(
+                            (e) => e['name'] == exercise['name'],
+                          );
                         } else {
-                          selectedExercises.add(exercise['name']!);
+                          selectedExercises.add(exercise);
                         }
                       });
                     },
@@ -519,10 +524,11 @@ class _AddExercisePageState extends State<AddExercisePage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => CreateRoutinePage(
-                        selectedExercises: selectedExercises.toList(),
-                        routineTitle: _routineTitleController.text.trim(),
-                      ),
+                      builder:
+                          (_) => CreateRoutinePage(
+                            selectedExercises: selectedExercises.toList(),
+                            routineTitle: _routineTitleController.text.trim(),
+                          ),
                     ),
                   );
                 },
