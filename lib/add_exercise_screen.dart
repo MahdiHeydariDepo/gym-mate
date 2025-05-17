@@ -1,221 +1,6 @@
-/*import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:cached_network_image/cached_network_image.dart';
 
-class AddExercisePage extends StatefulWidget {
-  const AddExercisePage({super.key});
-
-  @override
-  State<AddExercisePage> createState() => _AddExercisePageState();
-}
-
-class _AddExercisePageState extends State<AddExercisePage> {
-  List<Map<String, String>> allExercises = [];
-  List<Map<String, String>> filteredExercises = [];
-  Set<String> selectedExercises = {};
-  String selectedMuscle = 'All';
-  String searchQuery = '';
-  bool isLoading = true;
-
-  final List<String> muscles = ['All', 'Chest', 'Lats', 'Shoulders', 'Upper Back', 'Triceps'];
-
-  @override
-  void initState() {
-    super.initState();
-    fetchExercises();
-  }
-
-  Future<void> fetchExercises() async {
-    try {
-      final response = await http.get(Uri.parse('https://your-api.com/api/exercises'));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          allExercises = List<Map<String, String>>.from(data.map((exercise) => {
-                'name': exercise['name'],
-                'muscle': exercise['muscle'],
-                'imageUrl': exercise['imageUrl'],
-              }));
-          applyFilters();
-          isLoading = false;
-        });
-      } else {
-        throw Exception('Failed to load exercises');
-      }
-    } catch (e) {
-      print('Error: $e');
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-
-  void applyFilters() {
-    setState(() {
-      filteredExercises = allExercises
-          .where((exercise) {
-            final matchMuscle = selectedMuscle == 'All' || exercise['muscle'] == selectedMuscle;
-            final matchSearch = exercise['name']!
-                .toLowerCase()
-                .contains(searchQuery.toLowerCase());
-            return matchMuscle && matchSearch;
-          })
-          .toList();
-    });
-  }
-
-  void toggleExerciseSelection(String name) {
-    setState(() {
-      if (selectedExercises.contains(name)) {
-        selectedExercises.remove(name);
-      } else {
-        selectedExercises.add(name);
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 37, 36, 34),
-        title: const Text('Add Exercise', style: TextStyle(color: Colors.white)),
-        leading: TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Color(0xFFEB5E28))),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // TODO: Save logic here
-            },
-            child: const Text('Save', style: TextStyle(color: Color(0xFFEB5E28))),
-          )
-        ],
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFEB5E28)))
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Routine title',
-                          style: TextStyle(color: Colors.white70, fontSize: 18)),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              style: const TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
-                                hintText: 'Search exercise',
-                                hintStyle: const TextStyle(color: Colors.white38),
-                                filled: true,
-                                fillColor: Colors.grey[900],
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                              onChanged: (value) {
-                                searchQuery = value;
-                                applyFilters();
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          DropdownButton<String>(
-                            dropdownColor: Colors.grey[900],
-                            value: selectedMuscle,
-                            style: const TextStyle(color: Colors.white),
-                            items: muscles
-                                .map((m) => DropdownMenuItem(
-                                      value: m,
-                                      child: Text(m),
-                                    ))
-                                .toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                selectedMuscle = value;
-                                applyFilters();
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: filteredExercises.length,
-                    itemBuilder: (context, index) {
-                      final exercise = filteredExercises[index];
-                      final isSelected = selectedExercises.contains(exercise['name']);
-
-                      return Card(
-                        color: Colors.grey[900],
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: ListTile(
-                          leading: ClipOval(
-                            child: CachedNetworkImage(
-                              imageUrl: exercise['imageUrl'] ?? '',
-                              width: 40,
-                              height: 40,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) =>
-                                  const CircularProgressIndicator(strokeWidth: 2),
-                              errorWidget: (context, url, error) =>
-                                  const Icon(Icons.image_not_supported, color: Colors.white24),
-                            ),
-                          ),
-                          title: Text(exercise['name']!,
-                              style: const TextStyle(color: Colors.white)),
-                          subtitle: Text(exercise['muscle']!,
-                              style: const TextStyle(color: Colors.white38)),
-                          trailing: isSelected
-                              ? const Icon(Icons.check_circle, color: Color(0xFFEB5E28))
-                              : const Icon(Icons.circle_outlined, color: Colors.white24),
-                          onTap: () => toggleExerciseSelection(exercise['name']!),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                if (selectedExercises.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEB5E28),
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      onPressed: () {
-                        // Handle adding selected exercises
-                        print("Selected exercises: $selectedExercises");
-                      },
-                      child: Text('Add ${selectedExercises.length} exercise(s)',
-                          style: const TextStyle(color: Colors.white, fontSize: 18)),
-                    ),
-                  )
-              ],
-            ),
-    );
-  }
-}
-*/
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:gymmate/creat_routine_screen.dart'; // Make sure this import points to your actual routine screen
@@ -230,32 +15,48 @@ class AddExercisePage extends StatefulWidget {
 
 class _AddExercisePageState extends State<AddExercisePage> {
   final TextEditingController _searchController = TextEditingController();
-  final List<Map<String, String>> allExercises = [
-    {
-      'name': 'Bench Press',
-      'muscle': 'Chest',
-      'image': 'https://via.placeholder.com/48',
-    },
-    {
-      'name': 'Bicep Curl',
-      'muscle': 'Biceps',
-      'image': 'https://via.placeholder.com/48',
-    },
-    {
-      'name': 'Face Pull',
-      'muscle': 'Shoulders',
-      'image': 'https://via.placeholder.com/48',
-    },
-    {
-      'name': 'Deadlift',
-      'muscle': 'Hamstrings',
-      'image': 'https://via.placeholder.com/48',
-    },
-  ];
-
+  List<Map<String, String>> allExercises = [];
   TextEditingController _routineTitleController = TextEditingController();
   final List<String> selectedMuscles = [];
   final List<Map<String, String>> selectedExercises = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchExercises(); 
+  }
+
+  Future<void> fetchExercises() async {
+    final url = Uri.parse(
+      'https://your-api-url.com/api/exercises',
+    ); // Replace with your actual API URL
+
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+
+        // Convert each item to Map<String, String>
+        final List<Map<String, String>> exercises =
+            data.map<Map<String, String>>((item) {
+              return {
+                'name': item['name']?.toString() ?? '',
+                'muscle': item['muscle']?.toString() ?? '',
+                'image': item['image']?.toString() ?? '',
+              };
+            }).toList();
+
+        setState(() {
+          allExercises = exercises;
+        });
+      } else {
+        print('Failed to fetch exercises: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching exercises: $e');
+    }
+  }
 
   @override
   void dispose() {

@@ -14,11 +14,11 @@ class GymMateApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: WorkoutScreen(),
+      
       debugShowCheckedModeBanner: false,
       title: 'GYMMATE',
       theme: ThemeData.dark(), // optional, you can customize it
-     // initialRoute: '/splash',
+      initialRoute: '/splash',
       routes: {
         '/splash': (context) => SplashScreen(),
         '/login': (context) => LoginScreen(),
