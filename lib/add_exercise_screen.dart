@@ -27,9 +27,7 @@ class _AddExercisePageState extends State<AddExercisePage> {
   }
 
   Future<void> fetchExercises() async {
-    final url = Uri.parse(
-      'https://your-api-url.com/api/exercises',
-    ); // Replace with your actual API URL
+    final url = Uri.parse('http://10.0.2.2:5000/Routine/GetExercises'); // مسیر صحیح API
 
     try {
       final response = await http.get(url);
@@ -37,15 +35,14 @@ class _AddExercisePageState extends State<AddExercisePage> {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
 
-        // Convert each item to Map<String, String>
-        final List<Map<String, String>> exercises =
-            data.map<Map<String, String>>((item) {
-              return {
-                'name': item['name']?.toString() ?? '',
-                'muscle': item['muscle']?.toString() ?? '',
-                'image': item['image']?.toString() ?? '',
-              };
-            }).toList();
+        final List<Map<String, String>> exercises = data.map<Map<String, String>>((item) {
+          return {
+            'name': item['name'] ?? '',
+            'muscle': item['muscleGroupName'] ?? '',
+            'image': item['exerImgBase64'] ?? '',
+            'description': item['description'] ?? '',
+          };
+        }).toList();
 
         setState(() {
           allExercises = exercises;
@@ -57,6 +54,7 @@ class _AddExercisePageState extends State<AddExercisePage> {
       print('Error fetching exercises: $e');
     }
   }
+
 
   @override
   void dispose() {
@@ -74,7 +72,7 @@ class _AddExercisePageState extends State<AddExercisePage> {
       builder: (context) {
         final List<String> muscleGroups = [
           'All Muscles',
-          'Chest',
+          'chest',
           'Lats',
           'Shoulders',
           'Upper Back',

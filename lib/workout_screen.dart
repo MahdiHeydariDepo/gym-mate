@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:gymmate/add_exercise_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gymmate/custom_widgets/buttom_navbar.dart';
+import 'package:gymmate/view_routine_screen.dart';
+
 
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({super.key});
@@ -22,31 +24,46 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     super.initState();
     fetchRoutines();
   }
+Future<void> fetchRoutines() async {
+  try {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwtToken');
+     print('TOKEN => $token');
 
-  Future<void> fetchRoutines() async {
-    try {
-      final response = await http.get(
-        Uri.parse('https://your-api.com/api/routines'), // Replace with actual endpoint
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          routines = data;
-          isLoading = false;
-        });
-      } else {
-        throw Exception('Failed to load routines');
-      }
-    } catch (e) {
+    if (token == null) {
       setState(() {
-        errorMessage = e.toString();
+        errorMessage = 'User not logged in';
         isLoading = false;
       });
+      return;
     }
-  }
 
+    final response = await http.get(
+      Uri.parse('http://10.0.2.2:5000/Routine/GetMyRoutines'), // آدرس درست API رو جایگزین کن
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      setState(() {
+        routines = data;
+        isLoading = false;
+      });
+    } else {
+      throw Exception('Failed to load routines');
+    }
+  } catch (e) {
+    setState(() {
+      errorMessage = e.toString();
+      isLoading = false;
+    });
+  }
+}
+
+ 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -96,10 +113,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               height: 60,
               child: ElevatedButton.icon(
                 onPressed: () {
-                                        Navigator.push(
+                        Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const AddExercisePage(),
+                         
                         ),
                       );
                 },
@@ -140,25 +158,33 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                               itemBuilder: (context, index) {
                                 final routine = routines[index];
                                 return Card(
-                                  color: Colors.grey[900],
-                                  margin: const EdgeInsets.symmetric(vertical: 8),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: ListTile(
-                                    title: Text(
-                                      routine['title'] ?? 'Untitled Routine',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    trailing: const Icon(Icons.arrow_forward_ios, color: Color.fromARGB(255, 235, 94, 40),),
-                                    onTap: () {
-                                      // TODO: Navigate to routine detail
-                                    },
-                                  ),
-                                );
+  color: Colors.grey[900],
+  margin: const EdgeInsets.symmetric(vertical: 8),
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: ListTile(
+    title: Text(
+      routine['name'] ?? 'Untitled Routine',
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    trailing: const Icon(Icons.arrow_forward_ios, color: Color.fromARGB(255, 235, 94, 40)),
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ViewRoutinePage(
+            routineId: routine['id'].toString(),
+          ),
+        ),
+      );
+    },
+  ),
+);
+
                               },
                             ),
             ),

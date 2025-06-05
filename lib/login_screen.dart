@@ -39,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'username': email, // توجه: باید username باشه طبق بک‌اند
+          'username': email, // توجه: اگر بک‌اند از username به‌جای email استفاده می‌کند
           'password': password,
         }),
       );
@@ -49,11 +49,20 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         final token = responseData['token'];
 
+        if (token == null || token.isEmpty) {
+          _showErrorDialog('Token not found in response.');
+          return;
+        }
+
+        // ذخیره توکن در SharedPreferences فقط در صورت تیک Remember Me
         if (_rememberMe) {
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('jwtToken', token);
         }
 
+        // می‌تونی نام کاربر یا اطلاعات دیگر را هم ذخیره کنی اگر نیاز بود
+
+        // رفتن به صفحه بعدی
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const ProfileScreen()),
@@ -70,6 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
       });
     }
   }
+
 
   void _showErrorDialog(String message) {
     showDialog(

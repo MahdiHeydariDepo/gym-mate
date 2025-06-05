@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:gymmate/custom_widgets/buttom_navbar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ViewRoutinePage extends StatefulWidget {
   final String routineId;
@@ -25,16 +26,34 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
   }
 
   Future<void> fetchRoutineData() async {
-    final url = Uri.parse('https://your-api.com/api/routines/${widget.routineId}');
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwtToken');
+
+    if (token == null || token.isEmpty) {
+      debugPrint('No JWT token found. Please login again.');
+      setState(() {
+        isLoading = false;
+        hasError = true;
+      });
+      return;
+    }
+
+    final url = Uri.parse('http://10.0.2.2:5000/Routine/GetRoutine?id=${widget.routineId}');
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final Map<String, dynamic> data = jsonDecode(response.body);
 
         setState(() {
-          routineTitle = data['title'] ?? 'Untitled';
+          routineTitle = data['name'] ?? 'Untitled';
           exercises = List<Map<String, dynamic>>.from(data['exercises'] ?? []);
           isLoading = false;
         });
@@ -121,7 +140,7 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    exercise['name'],
+                                    exercise['name'] ?? '',
                                     style: const TextStyle(
                                       fontSize: 18,
                                       color: Color(0xFFEB5E28),
@@ -132,83 +151,51 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            Row(
-                              children: const [
-                                Expanded(
-                                  flex: 2,
-                                  child: Align(
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      'Set',
-                                      style: TextStyle(color: Colors.white38),
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color.fromARGB(255, 12, 12, 12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        const Text('Sets', style: TextStyle(color: Colors.white38)),
+                                        const SizedBox(height: 4),
+                                        Text('${exercise['sets']}', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                                      ],
                                     ),
                                   ),
-                                ),
-                                Expanded(
-                                  flex: 4,
-                                  child: Align(
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      'Weight',
-                                      style: TextStyle(color: Colors.white38),
+                                  Expanded(
+                                    flex: 4,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        const Text('Weight', style: TextStyle(color: Colors.white38)),
+                                        const SizedBox(height: 4),
+                                        Text('${exercise['weight']}', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                                      ],
                                     ),
                                   ),
-                                ),
-                                Expanded(
-                                  flex: 4,
-                                  child: Align(
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      'Reps',
-                                      style: TextStyle(color: Colors.white38),
+                                  Expanded(
+                                    flex: 4,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        const Text('Reps', style: TextStyle(color: Colors.white38)),
+                                        const SizedBox(height: 4),
+                                        Text('${exercise['reps']}', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                                      ],
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 8),
-                            ...List<Map<String, dynamic>>.from(exercise['sets'] ?? []).map((set) {
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: const Color.fromARGB(255, 12, 12, 12),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 2,
-                                      child: Center(
-                                        child: Text(
-                                          '${set['set']}',
-                                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 4,
-                                      child: Center(
-                                        child: Text(
-                                          '${set['weight']}',
-                                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 4,
-                                      child: Center(
-                                        child: Text(
-                                          '${set['reps']}',
-                                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                            const SizedBox(height: 24),
                           ],
                         );
                       }).toList(),

@@ -1,12 +1,17 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:gymmate/add_exercise_screen.dart';
 import 'package:gymmate/custom_widgets/buttom_navbar.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 class CreateRoutinePage extends StatefulWidget {
   final List<Map<String, String>> selectedExercises;
   final String routineTitle;
+
 
   const CreateRoutinePage({
     Key? key,
@@ -39,6 +44,8 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
     setState(() => sets.add(newSet));
   }
 
+
+
   void updateValue(String exerciseName, int index, String field, int change) {
     setState(() {
       exerciseSets[exerciseName]![index][field] += change;
@@ -48,52 +55,101 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
     });
   }
 
-  Future<void> saveRoutine() async {
-    final payload = {
-      'title': _routineTitleController.text,
-      'exercises': exerciseSets,
-    };
+  Widget buildBase64Image(String base64String) {
+    try {
+      Uint8List bytes = base64Decode(base64String);
+      return Image.memory(bytes, width: 48, height: 48, fit: BoxFit.cover);
+    } catch (e) {
+      return const Icon(Icons.image_not_supported, color: Colors.grey);
+    }
+  }
 
+
+ Future<void> saveRoutine() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('jwtToken');
+
+  if (token == null) {
+    _showErrorDialog("Token not found. Please login again.");
+    return;
+  }
+
+  final String title = _routineTitleController.text.trim();
+  if (title.isEmpty) {
+    _showErrorDialog("Please enter a routine title.");
+    return;
+  }
+
+  final exercises = <Map<String, dynamic>>[];
+
+  for (var exercise in widget.selectedExercises) {
+    final name = exercise['name']!;
+    final id = exercise['id'];
+    final sets = exerciseSets[name] ?? [];
+
+    for (var set in sets) {
+      exercises.add({
+        'exerciseId': id,
+        'name': name, // ← اضافه شده
+        'set': set['set'],
+        'reps': set['reps'],
+        'weight': set['weight'],
+      });
+    }
+  }
+
+  final payload = {
+    'name': title,
+    'exercises': exercises,
+  };
+
+  try {
     final response = await http.post(
-      Uri.parse('https://your-api.com/routines'), // Replace with your API
-      headers: {'Content-Type': 'application/json'},
+      Uri.parse('http://10.0.2.2:5000/Routine/AddRoutine'),
+      headers: {
+        'Content-Type': 'application/json', // یا application/json-patch+json اگر سرور نیاز داره
+        'Authorization': 'Bearer $token',
+      },
       body: jsonEncode(payload),
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       showDialog(
         context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text("Success"),
-              content: const Text("Routine saved successfully!"),
-              actions: [
-                TextButton(
-                  child: const Text("OK"),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+        builder: (_) => AlertDialog(
+          title: const Text("Success"),
+          content: const Text("Routine saved successfully!"),
+          actions: [
+            TextButton(
+              child: const Text("OK"),
+              onPressed: () => Navigator.of(context).pop(),
             ),
+          ],
+        ),
       );
     } else {
-      // Show error
-      showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text("Error"),
-              content: Text("Failed to save routine (${response.statusCode})"),
-              actions: [
-                TextButton(
-                  child: const Text("OK"),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-      );
+      _showErrorDialog("Failed to save routine (${response.statusCode})");
     }
+  } catch (e) {
+    _showErrorDialog("Error occurred while saving routine: $e");
   }
+}
 
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,29 +176,29 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
                 context: context,
                 builder:
                     (_) => AlertDialog(
-                      title: const Text("Confirm Save"),
-                      content: const Text(
-                        "Are you sure you want to save this routine?",
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text("Cancel"),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(
-                              context,
-                            ).pop(); // close confirmation dialog
-                            saveRoutine(); // then save
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFEB5E28),
-                          ),
-                          child: const Text("Save"),
-                        ),
-                      ],
+                  title: const Text("Confirm Save"),
+                  content: const Text(
+                    "Are you sure you want to save this routine?",
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text("Cancel"),
                     ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(
+                          context,
+                        ).pop(); // close confirmation dialog
+                        saveRoutine(); // then save
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEB5E28),
+                      ),
+                      child: const Text("Save"),
+                    ),
+                  ],
+                ),
               );
             },
 
@@ -184,10 +240,15 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
                 children: [
                   Row(
                     children: [
-                      const CircleAvatar(
+                      CircleAvatar(
                         radius: 24,
                         backgroundColor: Colors.white24,
+                        child: buildBase64Image(widget.selectedExercises.firstWhere(
+                              (ex) => ex['name'] == exerciseName,
+                          orElse: () => {'image': ''},
+                        )['image'] ?? '',),
                       ),
+
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -262,13 +323,13 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
                             flex: 4,
                             child: _buildStepper(
                               set['weight'].toString(),
-                              () => updateValue(
+                                  () => updateValue(
                                 exerciseName,
                                 index,
                                 'weight',
                                 -1,
                               ),
-                              () =>
+                                  () =>
                                   updateValue(exerciseName, index, 'weight', 1),
                             ),
                           ),
@@ -276,9 +337,9 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
                             flex: 4,
                             child: _buildStepper(
                               set['reps'].toString(),
-                              () =>
+                                  () =>
                                   updateValue(exerciseName, index, 'reps', -1),
-                              () => updateValue(exerciseName, index, 'reps', 1),
+                                  () => updateValue(exerciseName, index, 'reps', 1),
                             ),
                           ),
                         ],
@@ -360,10 +421,10 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
   }
 
   Widget _buildStepper(
-    String value,
-    VoidCallback onMinus,
-    VoidCallback onPlus,
-  ) {
+      String value,
+      VoidCallback onMinus,
+      VoidCallback onPlus,
+      ) {
     return Container(
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 0, 0, 0),
