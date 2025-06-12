@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -7,7 +9,18 @@ import 'package:gymmate/creat_routine_screen.dart'; // Make sure this import poi
 import 'package:gymmate/custom_widgets/buttom_navbar.dart';
 
 class AddExercisePage extends StatefulWidget {
-  const AddExercisePage({Key? key}) : super(key: key);
+  final String? routineTitle;
+  final List<Map<String, dynamic>>? preselectedExercises;
+  final bool isEditing;
+  final int? routineId;
+
+  const AddExercisePage({
+    Key? key,
+    this.routineTitle,
+    this.preselectedExercises,
+    this.isEditing = false,
+    this.routineId,
+  }) : super(key: key);
 
   @override
   State<AddExercisePage> createState() => _AddExercisePageState();
@@ -18,48 +31,57 @@ class _AddExercisePageState extends State<AddExercisePage> {
   List<Map<String, String>> allExercises = [];
   TextEditingController _routineTitleController = TextEditingController();
   final List<String> selectedMuscles = [];
-  final List<Map<String, String>> selectedExercises = [];
+  final List<Map<String, dynamic>> selectedExercises = [];
 
   @override
   void initState() {
     super.initState();
-    fetchExercises(); 
+    fetchExercises();
+    if (widget.preselectedExercises != null) {
+      selectedExercises.addAll(widget.preselectedExercises!);
+    }
+
+    if (widget.routineTitle != null) {
+      _routineTitleController.text = widget.routineTitle!;
+    }
   }
 
   Future<void> fetchExercises() async {
-  final url = Uri.parse('http://10.0.2.2:5000/Routine/GetExercises');
+    final url = Uri.parse('http://10.0.2.2:5000/Routine/GetExercises');
 
-  try {
-    final response = await http.get(url);
+    try {
+      final response = await http.get(url);
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
 
-      final List<Map<String, String>> exercises = data.map<Map<String, String>>((item) {
-        return {
-          'exerciseId': item['exerciseId']?.toString() ?? '', // 🔧 اصلاح کلید
-          'name': item['name'] ?? '',
-          'muscle': item['muscleGroupName'] ?? '',
-          'image': item['exerImgBase64'] ?? '',
-          'description': item['description'] ?? '',
-        };
-      }).toList();
+        final List<Map<String, String>> exercises = data.map<Map<String, String>>((item) {
+          return {
+            'exerciseId': item['exerciseId']?.toString() ?? '', // 🔧 اصلاح کلید
+            'name': item['name'] ?? '',
+            'muscle': item['muscleGroupName'] ?? '',
+            'image': item['exerImgBase64'] ?? '',
+            'description': item['description'] ?? '',
+          };
+        }).toList();
 
-      // 🐞 Debug Log:
-      for (var e in exercises) {
-        print('Fetched Exercise → ID: ${e['exerciseId']}, Name: ${e['name']}');
+        // 🐞 Debug Log:
+        for (var e in exercises) {
+          print('Fetched Exercise → ID: ${e['exerciseId']}, Name: ${e['name']}');
+        }
+
+        setState(() {
+          allExercises = exercises;
+        });
+      } else {
+        print('Failed to fetch exercises: ${response.statusCode}');
       }
-
-      setState(() {
-        allExercises = exercises;
-      });
-    } else {
-      print('Failed to fetch exercises: ${response.statusCode}');
+    } catch (e) {
+      print('Error fetching exercises: $e');
     }
-  } catch (e) {
-    print('Error fetching exercises: $e');
   }
-}
+
+
 
 
   @override
@@ -78,7 +100,7 @@ class _AddExercisePageState extends State<AddExercisePage> {
       builder: (context) {
         final List<String> muscleGroups = [
           'All Muscles',
-          'chest',
+          'Chest',
           'Lats',
           'Shoulders',
           'Upper Back',
@@ -107,11 +129,14 @@ class _AddExercisePageState extends State<AddExercisePage> {
                       if (muscle == 'All Muscles') {
                         selectedMuscles.clear();
                       } else {
-                        selectedMuscles.add(muscle);
+                        if (!selectedMuscles.contains(muscle)) {
+                          selectedMuscles.add(muscle);
+                        }
                       }
                     });
                     Navigator.pop(context);
                   },
+
                 );
               }).toList(),
             ],
@@ -131,6 +156,19 @@ class _AddExercisePageState extends State<AddExercisePage> {
           selectedMuscles.contains(exercise['muscle']);
       return matchesSearch && matchesMuscle;
     }).toList();
+  }
+
+
+  Widget buildBase64Image(String base64String) {
+    if (base64String.isEmpty) {
+      return const Icon(Icons.image, color: Colors.grey);
+    }
+    try {
+      Uint8List bytes = base64Decode(base64String);
+      return Image.memory(bytes, width: 48, height: 48, fit: BoxFit.cover);
+    } catch (e) {
+      return const Icon(Icons.broken_image, color: Colors.grey);
+    }
   }
 
   @override
@@ -275,8 +313,9 @@ class _AddExercisePageState extends State<AddExercisePage> {
                               padding: const EdgeInsets.only(left: 10.0),
                               child: CircleAvatar(
                                 radius: 24,
-                                backgroundImage: CachedNetworkImageProvider(
-                                  exercise['image']!,
+                                backgroundColor: Colors.grey[800],
+                                child: ClipOval(
+                                  child: buildBase64Image(exercise['image'] ?? ''),
                                 ),
                               ),
                             ),
@@ -326,16 +365,22 @@ class _AddExercisePageState extends State<AddExercisePage> {
                   ),
                 ),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (_) => CreateRoutinePage(
-                            selectedExercises: selectedExercises.toList(),
-                            routineTitle: _routineTitleController.text.trim(),
-                          ),
-                    ),
-                  );
+                  if (widget.isEditing) {
+                    // EDIT FLOW: return selected exercises back to EditRoutinePage
+                    Navigator.pop(context, selectedExercises);
+                  } else {
+                    // CREATE FLOW: move forward to CreateRoutinePage
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) => CreateRoutinePage(
+                              selectedExercises: selectedExercises.toList(),
+                              routineTitle: _routineTitleController.text.trim(),
+                            ),
+                      ),
+                    );
+                  }
                 },
                 child: Text(
                   'Add ${selectedExercises.length} exercise${selectedExercises.length == 1 ? '' : 's'}',

@@ -1,48 +1,182 @@
-import 'dart:typed_data';
-
-import 'package:flutter/material.dart';
-import 'package:gymmate/add_exercise_screen.dart';
-import 'package:gymmate/custom_widgets/buttom_navbar.dart';
-import 'package:gymmate/workout_screen.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
-
+import 'dart:typed_data';
+import 'package:http/http.dart' as http;
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class CreateRoutinePage extends StatefulWidget {
-  final List<Map<String, dynamic>> selectedExercises;
-  final String routineTitle;
+import 'add_exercise_screen.dart';
+import 'custom_widgets/buttom_navbar.dart';
 
-  const CreateRoutinePage({
+class EditRoutinePage extends StatefulWidget {
+  final String routineId;
+  final String routineTitle;
+  final List<Map<String, dynamic>> routineExercises;
+  final List<Map<String, dynamic>> selectedExercises;
+
+  const EditRoutinePage({
     Key? key,
-    required this.selectedExercises,
+    required this.routineId,
     required this.routineTitle,
+    required this.routineExercises,
+    required this.selectedExercises,
   }) : super(key: key);
 
   @override
-  State<CreateRoutinePage> createState() => _CreateRoutinePageState();
+  State<EditRoutinePage> createState() => _EditRoutinePageState();
 }
 
-class _CreateRoutinePageState extends State<CreateRoutinePage> {
-  final Map<String, List<Map<String, dynamic>>> exerciseSets = {};
+class _EditRoutinePageState extends State<EditRoutinePage> {
   late TextEditingController _routineTitleController;
+
+  // ✅ نوع درست:
+  late List<Map<String, dynamic>> _selectedExercises;
+
+  final Map<String, List<Map<String, dynamic>>> exerciseSets = {};
 
   @override
   void initState() {
     super.initState();
     _routineTitleController = TextEditingController(text: widget.routineTitle);
-    for (var exercise in widget.selectedExercises) {
-      exerciseSets[exercise['name']!] = [
-        {'set': 1, 'reps': 0, 'weight': 0},
-      ];
+
+    // ✅ کپی درست با نوع dynamic:
+    _selectedExercises = List<Map<String, dynamic>>.from(widget.selectedExercises);
+
+    for (var item in widget.routineExercises) {
+      final name = item['name'];
+      if (!exerciseSets.containsKey(name)) {
+        exerciseSets[name] = [];
+      }
+
+      exerciseSets[name]!.add({
+        'set': item['set'],
+        'reps': item['reps'],
+        'weight': item['weight'],
+        'exerciseId': item['exerciseId'],
+      });
     }
   }
+
+  @override
+  void dispose() {
+    _routineTitleController.dispose();
+    super.dispose();
+  }
+
+
+  Future<void> _saveUpdatedRoutine() async {
+    final updatedTitle = _routineTitleController.text.trim();
+    if (updatedTitle.isEmpty) {
+      _showErrorDialog("Please enter a routine title.");
+      return;
+    }
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwtToken');
+    final routineId = int.tryParse(widget.routineId);
+    if (routineId == null) {
+      _showErrorDialog("Invalid routine ID.");
+      return;
+    }
+
+    try {
+      // 1. Update Routine Name
+      final nameResponse = await http.put(
+        Uri.parse('http://10.0.2.2:5000/Routine/UpdateRoutineName'),
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json-patch+json',
+        },
+        body: jsonEncode({
+          'routineId': routineId,
+          'newName': updatedTitle,
+        }),
+      );
+
+      if (nameResponse.statusCode != 200) {
+        throw Exception('Failed to update routine name');
+      }
+
+      // 3. Add new exercises if not in the original list
+      for (var exercise in _selectedExercises) {
+        final exerciseId = exercise['exerciseId'];
+
+        final isNew = !widget.routineExercises.any((e) => e['exerciseId'] == exerciseId);
+
+        if (isNew) {
+          final exerciseName = exercise['name'];
+          final sets = exerciseSets[exerciseName];
+          if (sets == null || sets.isEmpty) continue;
+
+          final reps = sets[0]['reps'];
+          final weight = sets[0]['weight'];
+
+          final addResponse = await http.post(
+            Uri.parse('http://10.0.2.2:5000/Routine/AddExerciseToRoutine'),
+            headers: {
+              'accept': '*/*',
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json-patch+json',
+            },
+            body: jsonEncode({
+              'routineId': routineId,
+              'exerciseId': exerciseId,
+              'sets': 1,
+              'reps': reps,
+              'weight': weight,
+            }),
+          );
+
+          if (addResponse.statusCode != 200) {
+            throw Exception('Failed to add exercise $exerciseId');
+          }
+        }
+      }
+
+
+      // 2. Update each exercise set
+      for (var entry in exerciseSets.entries) {
+        for (var set in entry.value) {
+          final exerciseId = set['exerciseId'];
+          final reps = set['reps'];
+          final weight = set['weight'];
+
+          final exerciseResponse = await http.put(
+            Uri.parse('http://10.0.2.2:5000/Routine/UpdateExerciseInRoutine'),
+            headers: {
+              'accept': '*/*',
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json-patch+json',
+            },
+            body: jsonEncode({
+              'routineId': routineId,
+              'exerciseId': exerciseId,
+              'sets': 1,
+              'reps': reps,
+              'weight': weight,
+            }),
+          );
+
+          if (exerciseResponse.statusCode != 200) {
+            throw Exception('Failed to update exercise $exerciseId');
+          }
+        }
+      }
+
+      Navigator.pop(context, 'update'); // go back on success
+    } catch (e) {
+      _showErrorDialog('Failed to update routine: $e');
+    }
+  }
+
+
+
 
   void addSet(String exerciseName) {
     final sets = exerciseSets[exerciseName]!;
     final newSet = {'set': sets.length + 1, 'reps': 0, 'weight': 0};
     setState(() => sets.add(newSet));
   }
+
 
   void updateValue(String exerciseName, int index, String field, int change) {
     setState(() {
@@ -62,111 +196,30 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
     }
   }
 
-  Future<void> saveRoutine() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('jwtToken');
-
-    for (var exercise in widget.selectedExercises) {
-      print('Selected exercise: ${exercise['name']} with id ${exercise['id']}');
-    }
-
-    if (token == null) {
-      _showErrorDialog("Token not found. Please login again.");
-      return;
-    }
-
-    final String title = _routineTitleController.text.trim();
-    if (title.isEmpty) {
-      _showErrorDialog("Please enter a routine title.");
-      return;
-    }
-
-    final exercises = <Map<String, dynamic>>[];
-
-    for (var exercise in widget.selectedExercises) {
-      final name = exercise['name']!;
-      final id = int.tryParse(
-        (exercise['exerciseId'] ?? exercise['id'] ?? '0').toString(),
-      );
-
-      if (id == 0) {
-        print('⚠️ Invalid exerciseId for $name: $id');
-        continue;
+  void _updateSet(String exerciseName, int setIndex, String field,
+      String value) {
+    setState(() {
+      if (field == 'reps') {
+        exerciseSets[exerciseName]![setIndex]['reps'] =
+            int.tryParse(value) ?? 0;
+      } else if (field == 'weight') {
+        exerciseSets[exerciseName]![setIndex]['weight'] =
+            double.tryParse(value) ?? 0.0;
       }
-
-      final sets = exerciseSets[name] ?? [];
-
-      for (var set in sets) {
-        exercises.add({
-          'exerciseId': id,
-          'name': name,
-          'set': set['set'],
-          'reps': set['reps'],
-          'weight': set['weight'],
-        });
-      }
-    }
-
-    final payload = {'name': title, 'exercises': exercises};
-
-    try {
-      print("Sending payload:");
-      print(jsonEncode(payload));
-
-      final response = await http.post(
-        Uri.parse('http://10.0.2.2:5000/Routine/AddRoutine'),
-        headers: {
-          'Content-Type': 'application/json-patch+json', // ← اصلاح شده
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(payload),
-      );
-
-      print("Response status: ${response.statusCode}");
-      print("Response body: ${response.body}");
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text("Success"),
-            content: const Text("Routine saved successfully!"),
-            actions: [
-              TextButton(
-                child: const Text("OK"),
-                onPressed: () {
-                  Navigator.of(context).pop(); // close dialog
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => WorkoutScreen()),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-
-      } else {
-        _showErrorDialog(
-          "Failed to save routine (${response.statusCode})\n\n${response.body}",
-        );
-      }
-    } catch (e) {
-      _showErrorDialog("Error occurred while saving routine: $e");
-    }
+    });
   }
+
 
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text('Error'),
+      builder: (_) =>
+          AlertDialog(
+            title: const Text("Error"),
             content: Text(message),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
+              TextButton(onPressed: () => Navigator.pop(context),
+                  child: const Text("OK"))
             ],
           ),
     );
@@ -186,7 +239,7 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
           ),
         ),
         title: const Text(
-          'Create Routine',
+          'Edit Routine',
           style: TextStyle(color: Colors.white),
         ),
         centerTitle: true,
@@ -197,7 +250,8 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
               showDialog(
                 context: context,
                 builder:
-                    (_) => AlertDialog(
+                    (_) =>
+                    AlertDialog(
                       title: const Text("Confirm Save"),
                       content: const Text(
                         "Are you sure you want to save this routine?",
@@ -212,7 +266,7 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
                             Navigator.of(
                               context,
                             ).pop(); // close confirmation dialog
-                            saveRoutine(); // then save
+                            _saveUpdatedRoutine();  // then save
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFEB5E28),
@@ -253,7 +307,10 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
                 hintStyle: TextStyle(color: Colors.white54),
               ),
             ),
+
             const SizedBox(height: 20),
+
+            
             ...exerciseSets.entries.map((entry) {
               final exerciseName = entry.key;
               final sets = entry.value;
@@ -268,10 +325,8 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
                         child: buildBase64Image(
                           widget.selectedExercises.firstWhere(
                                 (ex) => ex['name'] == exerciseName,
-                                orElse: () => {'image': ''},
-                              )['image'] ??
-                              '',
-                        ),
+                            orElse: () => {'image': ''},
+                          )['image'] ?? '',),
                       ),
 
                       const SizedBox(width: 12),
@@ -320,7 +375,10 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  ...sets.asMap().entries.map((setEntry) {
+                  ...sets
+                      .asMap()
+                      .entries
+                      .map((setEntry) {
                     final index = setEntry.key;
                     final set = setEntry.value;
                     return Container(
@@ -348,13 +406,14 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
                             flex: 4,
                             child: _buildStepper(
                               set['weight'].toString(),
-                              () => updateValue(
-                                exerciseName,
-                                index,
-                                'weight',
-                                -1,
-                              ),
-                              () =>
+                                  () =>
+                                  updateValue(
+                                    exerciseName,
+                                    index,
+                                    'weight',
+                                    -1,
+                                  ),
+                                  () =>
                                   updateValue(exerciseName, index, 'weight', 1),
                             ),
                           ),
@@ -362,9 +421,10 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
                             flex: 4,
                             child: _buildStepper(
                               set['reps'].toString(),
-                              () =>
+                                  () =>
                                   updateValue(exerciseName, index, 'reps', -1),
-                              () => updateValue(exerciseName, index, 'reps', 1),
+                                  () =>
+                                  updateValue(exerciseName, index, 'reps', 1),
                             ),
                           ),
                         ],
@@ -414,18 +474,23 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
             }).toList(),
             Center(
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  final selectedExercises = await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (_) => AddExercisePage(
-                            preselectedExercises: widget.selectedExercises,
-                            routineTitle: _routineTitleController.text,
-                            isEditing: false, // or true if appropriate
-                          ),
+                      builder: (_) => AddExercisePage(
+                        isEditing: true,
+                        preselectedExercises: _selectedExercises,
+                        routineTitle: _routineTitleController.text,
+                      ),
                     ),
                   );
+
+                  if (selectedExercises != null) {
+                    setState(() {
+                      _selectedExercises = List<Map<String, dynamic>>.from(selectedExercises);
+                    });
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFEB5E28),
@@ -451,12 +516,11 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
       bottomNavigationBar: MyBottomNavBar(currentIndex: 0),
     );
   }
-
   Widget _buildStepper(
-    String value,
-    VoidCallback onMinus,
-    VoidCallback onPlus,
-  ) {
+      String value,
+      VoidCallback onMinus,
+      VoidCallback onPlus,
+      ) {
     return Container(
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 0, 0, 0),
