@@ -27,33 +27,39 @@ class _AddExercisePageState extends State<AddExercisePage> {
   }
 
   Future<void> fetchExercises() async {
-    final url = Uri.parse('http://10.0.2.2:5000/Routine/GetExercises'); // مسیر صحیح API
+  final url = Uri.parse('http://10.0.2.2:5000/Routine/GetExercises');
 
-    try {
-      final response = await http.get(url);
+  try {
+    final response = await http.get(url);
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
 
-        final List<Map<String, String>> exercises = data.map<Map<String, String>>((item) {
-          return {
-            'name': item['name'] ?? '',
-            'muscle': item['muscleGroupName'] ?? '',
-            'image': item['exerImgBase64'] ?? '',
-            'description': item['description'] ?? '',
-          };
-        }).toList();
+      final List<Map<String, String>> exercises = data.map<Map<String, String>>((item) {
+        return {
+          'exerciseId': item['exerciseId']?.toString() ?? '', // 🔧 اصلاح کلید
+          'name': item['name'] ?? '',
+          'muscle': item['muscleGroupName'] ?? '',
+          'image': item['exerImgBase64'] ?? '',
+          'description': item['description'] ?? '',
+        };
+      }).toList();
 
-        setState(() {
-          allExercises = exercises;
-        });
-      } else {
-        print('Failed to fetch exercises: ${response.statusCode}');
+      // 🐞 Debug Log:
+      for (var e in exercises) {
+        print('Fetched Exercise → ID: ${e['exerciseId']}, Name: ${e['name']}');
       }
-    } catch (e) {
-      print('Error fetching exercises: $e');
+
+      setState(() {
+        allExercises = exercises;
+      });
+    } else {
+      print('Failed to fetch exercises: ${response.statusCode}');
     }
+  } catch (e) {
+    print('Error fetching exercises: $e');
   }
+}
 
 
   @override

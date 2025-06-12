@@ -36,6 +36,9 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
         {'set': 1, 'reps': 0, 'weight': 0},
       ];
     }
+     for (var exercise in widget.selectedExercises) {
+    print('🧩 Selected Exercise → ID: ${exercise['exerciseId']}, Name: ${exercise['name']}');
+  }
   }
 
   void addSet(String exerciseName) {
@@ -69,6 +72,10 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   final token = prefs.getString('jwtToken');
 
+for (var exercise in widget.selectedExercises) {
+  print('Selected exercise: ${exercise['name']} with id ${exercise['id']}');
+}
+
   if (token == null) {
     _showErrorDialog("Token not found. Please login again.");
     return;
@@ -83,20 +90,26 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
   final exercises = <Map<String, dynamic>>[];
 
   for (var exercise in widget.selectedExercises) {
-    final name = exercise['name']!;
-    final id = exercise['id'];
-    final sets = exerciseSets[name] ?? [];
-
-    for (var set in sets) {
-      exercises.add({
-        'exerciseId': id,
-        'name': name, // ← اضافه شده
-        'set': set['set'],
-        'reps': set['reps'],
-        'weight': set['weight'],
-      });
-    }
+  final name = exercise['name']!;
+  final id = int.tryParse((exercise['exerciseId'] ?? exercise['id'] ?? '0').toString());
+  
+  if (id == 0) {
+    print('⚠️ Invalid exerciseId for $name: $id');
+    continue;
   }
+
+  final sets = exerciseSets[name] ?? [];
+
+  for (var set in sets) {
+    exercises.add({
+      'exerciseId': id,
+      'name': name,
+      'set': set['set'],
+      'reps': set['reps'],
+      'weight': set['weight'],
+    });
+  }
+}
 
   final payload = {
     'name': title,
@@ -104,14 +117,20 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
   };
 
   try {
+    print("Sending payload:");
+    print(jsonEncode(payload));
+
     final response = await http.post(
       Uri.parse('http://10.0.2.2:5000/Routine/AddRoutine'),
       headers: {
-        'Content-Type': 'application/json', // یا application/json-patch+json اگر سرور نیاز داره
+        'Content-Type': 'application/json-patch+json', // ← اصلاح شده
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode(payload),
     );
+
+    print("Response status: ${response.statusCode}");
+    print("Response body: ${response.body}");
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       showDialog(
@@ -128,7 +147,7 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
         ),
       );
     } else {
-      _showErrorDialog("Failed to save routine (${response.statusCode})");
+      _showErrorDialog("Failed to save routine (${response.statusCode})\n\n${response.body}");
     }
   } catch (e) {
     _showErrorDialog("Error occurred while saving routine: $e");
