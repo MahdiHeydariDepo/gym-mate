@@ -22,24 +22,6 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
   bool isLoading = true;
   bool hasError = false;
 
-
-  Widget buildBase64Image(String base64String) {
-    try {
-      Uint8List bytes = base64Decode(base64String);
-      return ClipOval(
-        child: Image.memory(
-          bytes,
-          width: 48,
-          height: 48,
-          fit: BoxFit.cover,
-        ),
-      );
-    } catch (e) {
-      return const Icon(Icons.image_not_supported, color: Colors.grey);
-    }
-  }
-
-
   @override
   void initState() {
     super.initState();
@@ -51,7 +33,7 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
     final token = prefs.getString('jwtToken');
 
     if (token == null || token.isEmpty) {
-      debugPrint('No JWT token found. Please login again.');
+      debugPrint('No JWT token found.');
       setState(() {
         isLoading = false;
         hasError = true;
@@ -82,11 +64,50 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
         throw Exception('Failed to load routine');
       }
     } catch (e) {
+      debugPrint('Error: $e');
       setState(() {
         isLoading = false;
         hasError = true;
       });
-      debugPrint('Error fetching routine: $e');
+    }
+  }
+
+  Future<void> deleteRoutine() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwtToken');
+
+    if (token == null || token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("توکن پیدا نشد")));
+      return;
+    }
+
+    final url = Uri.parse('http://10.0.2.2:5000/Routine/DeleteRoutine?id=${widget.routineId}');
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("روتین با موفقیت حذف شد")),
+          );
+          Navigator.pop(context, 'deleted');
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("حذف با خطا مواجه شد")),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error deleting routine: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("خطا در اتصال به سرور")),
+      );
     }
   }
 
@@ -96,29 +117,6 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         leadingWidth: 100,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit, color: Color(0xFFEB5E28)),
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => EditRoutinePage(
-                    routineId: widget.routineId,
-                    routineTitle: routineTitle,
-                    routineExercises: exercises,
-                    selectedExercises: exercises, // same as routineExercises unless you separate them later
-                  ),
-                ),
-              );
-
-              // Optionally reload if the edit was successful
-              if (result == 'updated') {
-                fetchRoutineData();
-              }
-            },
-          ),
-        ],
         leading: TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text(
@@ -132,111 +130,157 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
         ),
         centerTitle: true,
         backgroundColor: const Color(0xFF252422),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit, color: Color(0xFFEB5E28)),
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => EditRoutinePage(
+                    routineId: widget.routineId,
+                    routineTitle: routineTitle,
+                    routineExercises: exercises,
+                    selectedExercises: exercises,
+                  ),
+                ),
+              );
 
+              if (result == 'updated') {
+                fetchRoutineData();
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.red),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text("delete Routinu"),
+                  content: const Text("Are you sure?"),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Cancell"),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        deleteRoutine();
+                      },
+                      child: const Text("Delete", style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFEB5E28)))
           : hasError
-          ? const Center(child: Text('Error loading routine', style: TextStyle(color: Colors.white)))
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Routine Title',
-              style: TextStyle(color: Colors.white38, fontSize: 16),
-            ),
-            Text(
-              routineTitle,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFEB5E28),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Exercises',
-              style: TextStyle(color: Colors.white38, fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            ...exercises.map((exercise) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+              ? const Center(child: Text('خطا در بارگذاری روتین', style: TextStyle(color: Colors.white)))
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const CircleAvatar(
-                        radius: 24,
-                        backgroundColor: Colors.white24,
+                      const Text(
+                        'Routine Title',
+                        style: TextStyle(color: Colors.white38, fontSize: 16),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          exercise['name'] ?? '',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            color: Color(0xFFEB5E28),
-                            fontWeight: FontWeight.bold,
-                          ),
+                      Text(
+                        routineTitle,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFEB5E28),
                         ),
                       ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Exercises',
+                        style: TextStyle(color: Colors.white38, fontSize: 16),
+                      ),
+                      const SizedBox(height: 16),
+                      ...exercises.map((exercise) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor: Colors.white24,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    exercise['name'] ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      color: Color(0xFFEB5E28),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color.fromARGB(255, 12, 12, 12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        const Text('Sets', style: TextStyle(color: Colors.white38)),
+                                        const SizedBox(height: 4),
+                                        Text('${exercise['sets']}', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 4,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        const Text('Weight', style: TextStyle(color: Colors.white38)),
+                                        const SizedBox(height: 4),
+                                        Text('${exercise['weight']}', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 4,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        const Text('Reps', style: TextStyle(color: Colors.white38)),
+                                        const SizedBox(height: 4),
+                                        Text('${exercise['reps']}', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                      const SizedBox(height: 80),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 12, 12, 12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              const Text('Sets', style: TextStyle(color: Colors.white38)),
-                              const SizedBox(height: 4),
-                              Text('${exercise['sets']}', style: const TextStyle(color: Colors.white, fontSize: 16)),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          flex: 4,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              const Text('Weight', style: TextStyle(color: Colors.white38)),
-                              const SizedBox(height: 4),
-                              Text('${exercise['weight']}', style: const TextStyle(color: Colors.white, fontSize: 16)),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          flex: 4,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              const Text('Reps', style: TextStyle(color: Colors.white38)),
-                              const SizedBox(height: 4),
-                              Text('${exercise['reps']}', style: const TextStyle(color: Colors.white, fontSize: 16)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            }).toList(),
-            const SizedBox(height: 80),
-          ],
-        ),
-      ),
+                ),
       bottomNavigationBar: MyBottomNavBar(currentIndex: 0),
     );
   }

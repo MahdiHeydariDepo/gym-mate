@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:gymmate/custom_widgets/buttom_navbar.dart';
@@ -19,8 +20,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   File? _selectedImageFile;
-  String? _token;
-  String? _email;
+  Uint8List? _imageBytes; // For Base64 image
 
   @override
   void initState() {
@@ -29,23 +29,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _loadTokenAndProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString('token');
-    _email = prefs.getString('email');
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwtToken');
 
-    if (_token != null && _email != null) {
+    if (token != null) {
       _loadProfileData();
     } else {
-      print('Token or email not found');
+      print('Token not found');
     }
   }
 
   Future<void> _loadProfileData() async {
-    final uri = Uri.parse('https://10.0.2.2:5000/api/UsersApi/GetProfile?email=$_email');
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwtToken');
+    print('Token: $token');
 
     final response = await http.get(
-      uri,
-      headers: {'Authorization': 'Bearer $_token'},
+      Uri.parse('http://10.0.2.2:5000/api/UsersApi/get-profile'),
+      headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
     );
 
     if (response.statusCode == 200) {
@@ -54,6 +55,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _nameController.text = data['name'] ?? '';
         _lastNameController.text = data['lastName'] ?? '';
         _emailController.text = data['userName'] ?? '';
+
+        final imageBase64 = data['imageBase64'];
+        if (imageBase64 != null && imageBase64.isNotEmpty) {
+          final base64Str = imageBase64.split(',').last;
+          _imageBytes = base64Decode(base64Str);
+        }
       });
     } else {
       print('Failed to load profile: ${response.statusCode}');
@@ -65,23 +72,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (picked != null) {
       setState(() {
         _selectedImageFile = File(picked.path);
+        _imageBytes = null; // Reset loaded Base64 image if new image is picked
       });
     }
   }
 
   Future<void> _saveProfile() async {
-    if (_token == null) return;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwtToken');
+    if (token == null) return;
 
-    final uri = Uri.parse('http://10.0.2.2:5000/api/UsersApi/UpdateProfile');
+    final uri = Uri.parse('http://10.0.2.2:5000/api/UsersApi/Update-profile');
+    final request = http.MultipartRequest('PUT', uri);
+    request.headers['Authorization'] = 'Bearer $token';
 
-    final request = http.MultipartRequest('PUT', uri)
-      ..headers['Authorization'] = 'Bearer $_token'
-      ..fields['UserName'] = _emailController.text
-      ..fields['Name'] = _nameController.text
-      ..fields['LastName'] = _lastNameController.text;
+    request.fields['UserName'] = _emailController.text;
+    request.fields['Name'] = _nameController.text;
+    request.fields['LastName'] = _lastNameController.text;
 
     if (_selectedImageFile != null) {
-      request.files.add(await http.MultipartFile.fromPath('Image', _selectedImageFile!.path));
+      final bytes = await _selectedImageFile!.readAsBytes();
+      final base64Image = 'data:image/png;base64,' + base64Encode(bytes);
+      request.fields['ImageBase64'] = base64Image;
     }
 
     final response = await request.send();
@@ -151,9 +163,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 backgroundColor: const Color.fromARGB(255, 235, 94, 40),
                 backgroundImage: _selectedImageFile != null
                     ? FileImage(_selectedImageFile!)
-                    : null,
-                child: _selectedImageFile == null
-                    ? const Icon(Icons.person_2_outlined, size: 80, color: Colors.white)
+                    : (_imageBytes != null
+                        ? MemoryImage(_imageBytes!)
+                        : null),
+                child: (_selectedImageFile == null && _imageBytes == null)
+                    ? const Icon(
+                        Icons.person_2_outlined,
+                        size: 80,
+                        color: Colors.white,
+                      )
                     : null,
               ),
               const SizedBox(height: 8),
@@ -182,7 +200,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildTextFieldRow(String label, TextEditingController controller, String hint) {
+  Widget _buildTextFieldRow(
+    String label,
+    TextEditingController controller,
+    String hint,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12.0),
       child: Row(
@@ -191,10 +213,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 18),
             ),
           ),
           const SizedBox(width: 10),

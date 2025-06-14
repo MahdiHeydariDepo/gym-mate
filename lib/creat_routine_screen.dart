@@ -174,6 +174,14 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
 
   @override
   Widget build(BuildContext context) {
+          for (var exercise in widget.selectedExercises) {
+        final name = exercise['name'];
+        if (!exerciseSets.containsKey(name)) {
+          exerciseSets[name] = [
+            {'set': 1, 'reps': 0, 'weight': 0},
+          ];
+        }
+      }
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -254,6 +262,8 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
               ),
             ),
             const SizedBox(height: 20),
+            
+            
             ...exerciseSets.entries.map((entry) {
               final exerciseName = entry.key;
               final sets = entry.value;

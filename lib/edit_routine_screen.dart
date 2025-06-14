@@ -33,34 +33,61 @@ class _EditRoutinePageState extends State<EditRoutinePage> {
 
   final Map<String, List<Map<String, dynamic>>> exerciseSets = {};
 
-  @override
-  void initState() {
-    super.initState();
-    _routineTitleController = TextEditingController(text: widget.routineTitle);
+@override
+void initState() {
+  super.initState();
+  _selectedExercises = List<Map<String, dynamic>>.from(widget.selectedExercises);
 
-    // ✅ کپی درست با نوع dynamic:
-    _selectedExercises = List<Map<String, dynamic>>.from(widget.selectedExercises);
-
-    for (var item in widget.routineExercises) {
-      final name = item['name'];
-      if (!exerciseSets.containsKey(name)) {
-        exerciseSets[name] = [];
-      }
-
-      exerciseSets[name]!.add({
-        'set': item['set'],
-        'reps': item['reps'],
-        'weight': item['weight'],
-        'exerciseId': item['exerciseId'],
-      });
-    }
+  _routineTitleController = TextEditingController(text: widget.routineTitle);
+  if (widget.routineExercises.isEmpty) {
+    fetchRoutineData(int.parse(widget.routineId));
+  } else {
+    mapExercises(widget.routineExercises);
   }
+}
 
   @override
   void dispose() {
     _routineTitleController.dispose();
     super.dispose();
   }
+
+
+void fetchRoutineData(int id) async {
+  final response = await http.get(Uri.parse('http://10.0.2.2:5000/Routine/GetRoutineById/$id'));
+  print('Received JSON: ${response.body}');
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    final exercises = data['exercises'];
+    setState(() {
+      mapExercises(exercises);
+    });
+  } else {
+    // Handle error
+    print("Failed to fetch routine");
+  }
+}
+
+void mapExercises(List<dynamic> exercises) {
+  for (var item in exercises) {
+    print('Exercise received: ${jsonEncode(item)}');
+
+    final name = item['name'];
+    if (!exerciseSets.containsKey(name)) {
+      exerciseSets[name] = [];
+    }
+    exerciseSets[name]!.add({
+  'set': item['set'] ?? 1,
+  'reps': item['reps'] ?? 0,
+  'weight': item['weight'] ?? 0,
+  'exerciseId': item['exerciseId'],  // <-- Add this line
+      });
+      
+
+  }
+}
+
 
 
   Future<void> _saveUpdatedRoutine() async {
@@ -384,7 +411,7 @@ class _EditRoutinePageState extends State<EditRoutinePage> {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
+                        horizontal: 4,
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
@@ -538,7 +565,7 @@ class _EditRoutinePageState extends State<EditRoutinePage> {
             padding: EdgeInsets.zero,
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Text(
               value,
               style: const TextStyle(color: Colors.white, fontSize: 16),
