@@ -8,6 +8,8 @@ import 'package:gymmate/edit_profile_screen.dart';
 import 'package:gymmate/measurments_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'login_screen.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -222,16 +224,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CalendarScreen(),
+                    showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text("Log out"),
+                        content: const Text("Are you sure you want to log out?"),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text("Cancel"),
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(context);
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.remove('jwtToken');
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                                    (route) => false,
+                              );
+                            },
+                            child: const Text("Log Out"),
+                          ),
+                        ],
                       ),
                     );
                   },
-                  icon: const Icon(Icons.calendar_month,
-                      color: Colors.white, size: 30),
-                  label: const Text('Calendar', style: TextStyle(fontSize: 18)),
+
+                  icon: const Icon(Icons.logout, color: Colors.white, size: 30),
+                  label: const Text('Logout', style: TextStyle(fontSize: 18)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey[900],
                     foregroundColor: Colors.white,
@@ -242,6 +263,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
+
             ],
           ),
         ],

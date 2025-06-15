@@ -26,6 +26,7 @@ class CreateRoutinePage extends StatefulWidget {
 class _CreateRoutinePageState extends State<CreateRoutinePage> {
   final Map<String, List<Map<String, dynamic>>> exerciseSets = {};
   late TextEditingController _routineTitleController;
+  final Map<String, Image> _imageCache = {};
 
   @override
   void initState() {
@@ -37,6 +38,31 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
         exerciseSets[name] = [
           {'set': 1, 'reps': 0, 'weight': 0},
         ];
+      }
+    }
+    for (var exercise in widget.selectedExercises) {
+      final name = exercise['name'];
+      final base64Image = exercise['image'];
+
+      if (!_imageCache.containsKey(name) &&
+          base64Image != null &&
+          base64Image.isNotEmpty) {
+        try {
+          Uint8List bytes = base64Decode(base64Image);
+          _imageCache[name] = Image.memory(
+            bytes,
+            width: 48,
+            height: 48,
+            fit: BoxFit.cover,
+          );
+        } catch (e) {
+          _imageCache[name] = const Image(
+            image: AssetImage('assets/image_not_supported.png'),
+            width: 48,
+            height: 48,
+            fit: BoxFit.cover,
+          );
+        }
       }
     }
   }
@@ -276,13 +302,11 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
                     children: [
                       CircleAvatar(
                         radius: 24,
-                        backgroundColor: Colors.white24,
-                        child: buildBase64Image(
-                          widget.selectedExercises.firstWhere(
-                                (ex) => ex['name'] == exerciseName,
-                                orElse: () => {'image': ''},
-                              )['image'] ??
-                              '',
+                        backgroundColor: Colors.transparent,
+                        child: ClipOval(
+                          child:
+                              _imageCache[exerciseName] ??
+                              const Icon(Icons.image_not_supported),
                         ),
                       ),
 
