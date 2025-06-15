@@ -32,9 +32,12 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
     super.initState();
     _routineTitleController = TextEditingController(text: widget.routineTitle);
     for (var exercise in widget.selectedExercises) {
-      exerciseSets[exercise['name']!] = [
-        {'set': 1, 'reps': 0, 'weight': 0},
-      ];
+      final name = exercise['name']!;
+      if (!exerciseSets.containsKey(name)) {
+        exerciseSets[name] = [
+          {'set': 1, 'reps': 0, 'weight': 0},
+        ];
+      }
     }
   }
 
@@ -128,23 +131,23 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         showDialog(
           context: context,
-          builder: (_) => AlertDialog(
-            title: const Text("Success"),
-            content: const Text("Routine saved successfully!"),
-            actions: [
-              TextButton(
-                child: const Text("OK"),
-                onPressed: () {
-                  Navigator.of(context).pop(); // close dialog
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => WorkoutScreen()),
-                  );
-                },
+          builder:
+              (_) => AlertDialog(
+                title: const Text("Success"),
+                content: const Text("Routine saved successfully!"),
+                actions: [
+                  TextButton(
+                    child: const Text("OK"),
+                    onPressed: () {
+                      Navigator.of(context).pop(); // close dialog
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (_) => WorkoutScreen()),
+                      );
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
         );
-
       } else {
         _showErrorDialog(
           "Failed to save routine (${response.statusCode})\n\n${response.body}",
@@ -174,14 +177,14 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
 
   @override
   Widget build(BuildContext context) {
-          for (var exercise in widget.selectedExercises) {
-        final name = exercise['name'];
-        if (!exerciseSets.containsKey(name)) {
-          exerciseSets[name] = [
-            {'set': 1, 'reps': 0, 'weight': 0},
-          ];
-        }
+    for (var exercise in widget.selectedExercises) {
+      final name = exercise['name'];
+      if (!exerciseSets.containsKey(name)) {
+        exerciseSets[name] = [
+          {'set': 1, 'reps': 0, 'weight': 0},
+        ];
       }
+    }
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -262,8 +265,7 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
               ),
             ),
             const SizedBox(height: 20),
-            
-            
+
             ...exerciseSets.entries.map((entry) {
               final exerciseName = entry.key;
               final sets = entry.value;
@@ -424,19 +426,42 @@ class _CreateRoutinePageState extends State<CreateRoutinePage> {
             }).toList(),
             Center(
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  final updatedExercises = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder:
                           (_) => AddExercisePage(
                             preselectedExercises: widget.selectedExercises,
                             routineTitle: _routineTitleController.text,
-                            isEditing: false, // or true if appropriate
+                            isEditing: true, // 👈 IMPORTANT: editing flow
                           ),
                     ),
                   );
+
+                  if (updatedExercises != null) {
+                    setState(() {
+                      // 1. Track names already present
+                      final existingNames =
+                          widget.selectedExercises
+                              .map((e) => e['name'])
+                              .toSet();
+
+                      // 2. Add new exercises if any
+                      for (var ex in updatedExercises) {
+                        if (!existingNames.contains(ex['name'])) {
+                          widget.selectedExercises.add(ex);
+
+                          // Initialize with 1 empty set
+                          exerciseSets[ex['name']] = [
+                            {'set': 1, 'reps': 0, 'weight': 0},
+                          ];
+                        }
+                      }
+                    });
+                  }
                 },
+
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFEB5E28),
                   shape: RoundedRectangleBorder(

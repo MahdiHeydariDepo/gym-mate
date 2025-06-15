@@ -366,22 +366,36 @@ class _AddExercisePageState extends State<AddExercisePage> {
                 ),
                 onPressed: () {
                   if (widget.isEditing) {
-                    // EDIT FLOW: return selected exercises back to EditRoutinePage
                     Navigator.pop(context, selectedExercises);
                   } else {
-                    // CREATE FLOW: move forward to CreateRoutinePage
-                    Navigator.push(
+                    // 👇 Merge logic
+                    final updatedExercises = <Map<String, dynamic>>[];
+
+                    for (final newEx in selectedExercises) {
+                      final existing = widget.preselectedExercises?.firstWhere(
+                            (e) => e['exerciseId'] == newEx['exerciseId'],
+                        orElse: () => {},
+                      );
+
+                      if (existing != null && existing.isNotEmpty) {
+                        updatedExercises.add(existing);
+                      } else {
+                        updatedExercises.add(newEx);
+                      }
+                    }
+
+                    Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                        builder:
-                            (_) => CreateRoutinePage(
-                              selectedExercises: selectedExercises.toList(),
-                              routineTitle: _routineTitleController.text.trim(),
-                            ),
+                        builder: (_) => CreateRoutinePage(
+                          selectedExercises: updatedExercises,
+                          routineTitle: _routineTitleController.text.trim(),
+                        ),
                       ),
                     );
                   }
                 },
+
                 child: Text(
                   'Add ${selectedExercises.length} exercise${selectedExercises.length == 1 ? '' : 's'}',
                   style: const TextStyle(fontSize: 18, color: Colors.white),
