@@ -177,21 +177,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Workouts',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const Text(
-                    '7',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+
                 ],
               ),
             ],
@@ -221,7 +207,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
                   icon: const Icon(Icons.accessibility,
                       color: Colors.white, size: 30),
-                  label: const Text('Measures', style: TextStyle(fontSize: 18)),
+                  label: const Text('BMI calculator', style: TextStyle(fontSize: 18)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey[900],
                     foregroundColor: Colors.white,

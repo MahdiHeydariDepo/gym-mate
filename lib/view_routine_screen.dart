@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:gymmate/workout_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gymmate/custom_widgets/buttom_navbar.dart';
@@ -45,7 +46,9 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
       return;
     }
 
-    final url = Uri.parse('http://10.0.2.2:5000/Routine/GetRoutine?id=${widget.routineId}');
+    final url = Uri.parse(
+      'http://10.0.2.2:5000/Routine/GetRoutine?id=${widget.routineId}',
+    );
 
     try {
       final response = await http.get(
@@ -80,65 +83,62 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
   }
 
   void updateVolumeAndReps() {
-  double volume = 0;
-  int reps = 0;
+    double volume = 0;
+    int reps = 0;
 
-  for (int i = 0; i < exercises.length; i++) {
-    if (completedExercises[i]) {
-      final weightRaw = exercises[i]['weight'];
-      final weight = weightRaw is num
-          ? weightRaw.toDouble()
-          : double.tryParse(weightRaw.toString()) ?? 0.0;
-      final rep = int.tryParse('${exercises[i]['reps']}') ?? 0;
+    for (int i = 0; i < exercises.length; i++) {
+      if (completedExercises[i]) {
+        final weightRaw = exercises[i]['weight'];
+        final weight =
+            weightRaw is num
+                ? weightRaw.toDouble()
+                : double.tryParse(weightRaw.toString()) ?? 0.0;
+        final rep = int.tryParse('${exercises[i]['reps']}') ?? 0;
 
-      volume += weight * rep;
-      reps += rep;
+        volume += weight * rep;
+        reps += rep;
+      }
     }
+
+    setState(() {
+      totalVolume = volume;
+      totalReps = reps;
+    });
   }
-
-  setState(() {
-    totalVolume = volume;
-    totalReps = reps;
-  });
-}
-
 
   Future<void> deleteRoutine() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwtToken');
 
     if (token == null || token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("توکن پیدا نشد")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("توکن پیدا نشد")));
       return;
     }
 
-    final url = Uri.parse('http://10.0.2.2:5000/Routine/DeleteRoutine?id=${widget.routineId}');
+    final url = Uri.parse(
+      'http://10.0.2.2:5000/Routine/DeleteRoutine?id=${widget.routineId}',
+    );
 
     try {
       final response = await http.delete(
         url,
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
-      if (response.statusCode == 200) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("روتین با موفقیت حذف شد")),
-          );
-          Navigator.pop(context, 'deleted');
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("حذف با خطا مواجه شد")),
-        );
+      if (response.statusCode == 204) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Routine has been deleted successfully")));
+        Navigator.pop(context, true); // <-- signal deletion happened
+
       }
     } catch (e) {
       debugPrint('Error deleting routine: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("خطا در اتصال به سرور")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("خطا در اتصال به سرور")));
     }
   }
 
@@ -161,7 +161,10 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
         children: [
           Text(title, style: const TextStyle(color: Colors.white38)),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 16)),
+          Text(
+            value,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
         ],
       ),
     );
@@ -183,177 +186,241 @@ class _ViewRoutinePageState extends State<ViewRoutinePage> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text(
-              'View Routine',
-              style: TextStyle(color: Colors.white),
-            ),
-            Text(
-              'Reps: $totalReps | Volume: ${totalVolume.toStringAsFixed(1)} kg',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
+            const Text('View Routine', style: TextStyle(color: Colors.white)),
+
           ],
         ),
         centerTitle: true,
         backgroundColor: const Color(0xFF252422),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit, color: Color(0xFFEB5E28)),
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => EditRoutinePage(
-                    routineId: widget.routineId,
-                    routineTitle: routineTitle,
-                    routineExercises: exercises,
-                    selectedExercises: exercises,
-                  ),
-                ),
-              );
-
-              if (result == 'updated') {
-                fetchRoutineData();
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red),
+            icon: const Icon(Icons.delete, color: Color(0xFFEB5E28)),
             onPressed: () {
               showDialog(
                 context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text("Delete Routine"),
-                  content: const Text("Are you sure?"),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("Cancel"),
+                builder:
+                    (_) => AlertDialog(
+                      title: const Text("Delete Routine"),
+                      content: const Text("Are you sure?"),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("Cancel"),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            deleteRoutine();
+
+                          },
+                          child: const Text(
+                            "Delete",
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
                     ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        deleteRoutine();
-                      },
-                      child: const Text("Delete", style: TextStyle(color: Colors.red)),
-                    ),
-                  ],
-                ),
               );
             },
           ),
         ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFEB5E28)))
-          : hasError
-              ? const Center(child: Text('خطا در بارگذاری روتین', style: TextStyle(color: Colors.white)))
+      body:
+          isLoading
+              ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFFEB5E28)),
+              )
+              : hasError
+              ? const Center(
+                child: Text(
+                  'خطا در بارگذاری روتین',
+                  style: TextStyle(color: Colors.white),
+                ),
+              )
               : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Routine Title',
-                        style: TextStyle(color: Colors.white38, fontSize: 16),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Routine Title',
+                      style: TextStyle(color: Colors.white38, fontSize: 16),
+                    ),
+                    Text(
+                      routineTitle,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFEB5E28),
                       ),
-                      Text(
-                        routineTitle,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFEB5E28),
-                        ),
+                    ),
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(top: 16, bottom: 24),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E1E),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Color(0xFFEB5E28), width: 1),
                       ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Exercises',
-                        style: TextStyle(color: Colors.white38, fontSize: 16),
-                      ),
-                      const SizedBox(height: 16),
-                      ...exercises.asMap().entries.map((entry) {
-                        int index = entry.key;
-                        Map<String, dynamic> exercise = entry.value;
-                        bool isCompleted = completedExercises[index];
-
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              completedExercises[index] = !completedExercises[index];
-                            });
-                            updateVolumeAndReps();
-                          },
-                          child: Opacity(
-                            opacity: isCompleted ? 1.0 : 0.6,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 26,
-                                          backgroundColor: isCompleted ? Colors.green : Colors.white24,
-                                          backgroundImage: _buildExerciseImage(
-                                            exercise['exerImagebase64'] ?? exercise['exerImgBase64'],
-                                          ),
-                                        ),
-                                        if (isCompleted)
-                                          const Icon(Icons.check_circle, color: Colors.white, size: 18),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        exercise['name'] ?? '',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          color: isCompleted ? Colors.greenAccent : Color(0xFFEB5E28),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: Icon(
-                                        isCompleted ? Icons.check_box : Icons.check_box_outline_blank,
-                                        color: isCompleted ? Colors.green : Colors.white38,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          completedExercises[index] = !completedExercises[index];
-                                        });
-                                        updateVolumeAndReps();
-                                      },
-                                    )
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Container(
-                                  margin: const EdgeInsets.only(bottom: 16),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: const Color.fromARGB(255, 12, 12, 12),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: isCompleted ? Border.all(color: Colors.green, width: 1.5) : null,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      _buildInfoColumn('Sets', '${exercise['sets']}'),
-                                      _buildInfoColumn('Weight', '${exercise['weight']}'),
-                                      _buildInfoColumn('Reps', '${exercise['reps']}'),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Workout Summary',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        );
-                      }).toList(),
-                      const SizedBox(height: 80),
-                    ],
-                  ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Reps: $totalReps',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Volume: ${totalVolume.toStringAsFixed(1)} kg',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Exercises',
+                      style: TextStyle(color: Colors.white38, fontSize: 16),
+                    ),
+                    const SizedBox(height: 16),
+                    ...exercises.asMap().entries.map((entry) {
+                      int index = entry.key;
+                      Map<String, dynamic> exercise = entry.value;
+                      bool isCompleted = completedExercises[index];
+
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            completedExercises[index] =
+                                !completedExercises[index];
+                          });
+                          updateVolumeAndReps();
+                        },
+                        child: Opacity(
+                          opacity: isCompleted ? 1.0 : 1.0,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 26,
+                                        backgroundColor:
+                                            isCompleted
+                                                ? Colors.green
+                                                : Colors.white24,
+                                        backgroundImage: _buildExerciseImage(
+                                          exercise['exerImagebase64'] ??
+                                              exercise['exerImgBase64'],
+                                        ),
+                                      ),
+                                      if (isCompleted)
+                                        const Icon(
+                                          Icons.check_circle,
+                                          color: Colors.white,
+                                          size: 18,
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      exercise['name'] ?? '',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color:
+                                            isCompleted
+                                                ? Colors.greenAccent
+                                                : Color(0xFFEB5E28),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      isCompleted
+                                          ? Icons.check_box
+                                          : Icons.check_box_outline_blank,
+                                      color:
+                                          isCompleted
+                                              ? Colors.green
+                                              : Colors.white38,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        completedExercises[index] =
+                                            !completedExercises[index];
+                                      });
+                                      updateVolumeAndReps();
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color.fromARGB(255, 12, 12, 12),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border:
+                                      isCompleted
+                                          ? Border.all(
+                                            color: Colors.green,
+                                            width: 1.5,
+                                          )
+                                          : null,
+                                ),
+                                child: Row(
+                                  children: [
+                                    _buildInfoColumn(
+                                      'Sets',
+                                      '${exercise['sets']}',
+                                    ),
+                                    _buildInfoColumn(
+                                      'Weight',
+                                      '${exercise['weight']}',
+                                    ),
+                                    _buildInfoColumn(
+                                      'Reps',
+                                      '${exercise['reps']}',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    const SizedBox(height: 80),
+                  ],
                 ),
+              ),
       bottomNavigationBar: MyBottomNavBar(currentIndex: 0),
     );
   }

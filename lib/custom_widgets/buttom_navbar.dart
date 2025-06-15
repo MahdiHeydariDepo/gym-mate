@@ -18,7 +18,7 @@ class MyBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(height: 80,
+    return SizedBox(height: 90,
       child: BottomNavigationBar(
         currentIndex: currentIndex,
         backgroundColor: const Color.fromARGB(255, 37, 36, 34),

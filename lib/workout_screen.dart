@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gymmate/custom_widgets/buttom_navbar.dart';
 import 'package:gymmate/view_routine_screen.dart';
 
-
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({super.key});
 
@@ -24,46 +23,48 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     super.initState();
     fetchRoutines();
   }
-Future<void> fetchRoutines() async {
-  try {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('jwtToken');
-     print('TOKEN => $token');
 
-    if (token == null) {
+  Future<void> fetchRoutines() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('jwtToken');
+      print('TOKEN => $token');
+
+      if (token == null) {
+        setState(() {
+          errorMessage = 'User not logged in';
+          isLoading = false;
+        });
+        return;
+      }
+
+      final response = await http.get(
+        Uri.parse(
+          'http://10.0.2.2:5000/Routine/GetMyRoutines',
+        ), // آدرس درست API رو جایگزین کن
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          routines = data;
+          isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load routines');
+      }
+    } catch (e) {
       setState(() {
-        errorMessage = 'User not logged in';
+        errorMessage = e.toString();
         isLoading = false;
       });
-      return;
     }
-
-    final response = await http.get(
-      Uri.parse('http://10.0.2.2:5000/Routine/GetMyRoutines'), // آدرس درست API رو جایگزین کن
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      setState(() {
-        routines = data;
-        isLoading = false;
-      });
-    } else {
-      throw Exception('Failed to load routines');
-    }
-  } catch (e) {
-    setState(() {
-      errorMessage = e.toString();
-      isLoading = false;
-    });
   }
-}
 
- 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -113,13 +114,12 @@ Future<void> fetchRoutines() async {
               height: 60,
               child: ElevatedButton.icon(
                 onPressed: () {
-                        Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AddExercisePage(),
-                         
-                        ),
-                      );
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddExercisePage(),
+                    ),
+                  );
                 },
                 icon: const Icon(Icons.add, color: Colors.white),
                 label: const Text(
@@ -137,56 +137,71 @@ Future<void> fetchRoutines() async {
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator(color:Color.fromARGB(255, 235, 94, 40),))
-                  : errorMessage != null
+              child:
+                  isLoading
+                      ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color.fromARGB(255, 235, 94, 40),
+                        ),
+                      )
+                      : errorMessage != null
                       ? Center(
-                          child: Text(
-                            errorMessage!,
-                            style: const TextStyle(color: Color.fromARGB(255, 235, 94, 40),),
+                        child: Text(
+                          errorMessage!,
+                          style: const TextStyle(
+                            color: Color.fromARGB(255, 235, 94, 40),
                           ),
-                        )
+                        ),
+                      )
                       : routines.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'No routines found.',
-                                style: TextStyle(color: Colors.white70),
+                      ? const Center(
+                        child: Text(
+                          'No routines found.',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      )
+                      : ListView.builder(
+                        itemCount: routines.length,
+                        itemBuilder: (context, index) {
+                          final routine = routines[index];
+                          return Card(
+                            color: Colors.grey[900],
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: ListTile(
+                              title: Text(
+                                routine['name'] ?? 'Untitled Routine',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            )
-                          : ListView.builder(
-                              itemCount: routines.length,
-                              itemBuilder: (context, index) {
-                                final routine = routines[index];
-                                return Card(
-  color: Colors.grey[900],
-  margin: const EdgeInsets.symmetric(vertical: 8),
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(12),
-  ),
-  child: ListTile(
-    title: Text(
-      routine['name'] ?? 'Untitled Routine',
-      style: const TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.bold,
-      ),
-    ),
-    trailing: const Icon(Icons.arrow_forward_ios, color: Color.fromARGB(255, 235, 94, 40)),
-    onTap: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ViewRoutinePage(
-            routineId: routine['id'].toString(),
-          ),
-        ),
-      );
-    },
-  ),
-);
+                              trailing: const Icon(
+                                Icons.arrow_forward_ios,
+                                color: Color.fromARGB(255, 235, 94, 40),
+                              ),
+                              onTap: () async {
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => ViewRoutinePage(
+                                          routineId: routine['id'].toString(),
+                                        ),
+                                  ),
+                                );
 
+                                // If result is true (indicating a deletion or change), refresh the list
+                                if (result == true) {
+                                  fetchRoutines();
+                                }
                               },
                             ),
+                          );
+                        },
+                      ),
             ),
           ],
         ),
